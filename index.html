@@ -1,0 +1,268 @@
+<!doctype html>
+<html manifest="benjaMMO.appcache">
+  <head>
+    <title>BenjaMMO - TestBuild</title>
+    <style>
+      .player  {
+		width: 20px;
+		height: 20px;
+		background-color: red;
+		position: absolute;
+		display: inline;
+	  }
+    </style>
+  </head>
+  <body>
+	<script src="https://cdn.socket.io/socket.io-1.2.0.js"></script>
+    <script src="http://code.jquery.com/jquery-1.11.1.js"></script>
+	
+    <script>
+      var socket = io();
+	  var username = prompt("What is your name?","Username");
+	  
+	  var p1mTop = (0);
+	  var p1mLeft = (0);
+	  
+	  var p2mTop = (0);
+	  var p2mLeft = (0);
+	  
+	  var i = (0);
+	  var userNumber = (0);
+	  
+	  var upDown = false;
+	  var downDown = false;
+	  var rightDown = false;
+	  var leftDown = false;
+	  
+	  var movementLength = (20);
+	  
+	  var blockCount = ("0,0");
+	  
+	  var blockSize = (20);
+	  
+	  var mapLimit =  {X: 45, Y: 25, artX: 0, artY: -1}
+	  
+	  var globalBlocksCoords = {};
+	  
+	  var area = {X: 0, Y: 0}
+	  
+	  var clientType = "empty";
+	  var slotSelected = (1);
+	  
+	  var slots = ["N/A","wood","empty"]
+	  
+	  var charChecked = 0;
+	  
+	  var clicked = {X: 0, Y: 0, xMode: true}
+	  
+	  
+	  
+	  //on connection
+	  socket.emit("usernameFunction",username);
+	  
+	  $(document).keydown(function(key) {
+	    switch(parseInt(key.which,10)) {
+			//up, down, right, left
+			case 87:
+				upDown = true;				
+				break;
+			case 83:
+				downDown = true;				
+				break;
+			case 68:
+				rightDown = true;				
+				break;
+			case 65:
+				leftDown = true;
+				break;
+			case 49:
+				slotSelected = (1);
+				$(".slots").css("background-color","green");
+				$("#slot" + slotSelected).css("background-color","red");
+				break;
+			case 50:
+				slotSelected = (2);
+				$(".slots").css("background-color","green");
+				$("#slot" + slotSelected).css("background-color","red");
+				break;
+			case 51:
+				slotSelected = (3);
+				$(".slots").css("background-color","green");
+				$("#slot" + slotSelected).css("background-color","red");
+				break;
+			case 52:
+				slotSelected = (4);
+				$(".slots").css("background-color","green");
+				$("#slot" + slotSelected).css("background-color","red");
+				break;
+			case 53:
+				slotSelected = (5);
+				$(".slots").css("background-color","green");
+				$("#slot" + slotSelected).css("background-color","red");
+				break;	
+		}
+	  });
+      $(document).keyup(function(key) {
+	    switch(parseInt(key.which,10)) {
+			//up, down, right, left
+			case 87:
+				upDown = false;
+				break;
+			case 83:
+				downDown = false;
+				break;
+			case 68:
+				rightDown = false;
+				break;
+			case 65:
+				leftDown = false;
+				break;
+		}
+	  });
+	  
+	  setInterval(function (){
+		if(upDown === true && downDown === true){
+			//Do nothing
+		}else if(upDown === true){
+			socket.emit("move","up",username,userNumber);
+		}else if(downDown === true){
+			socket.emit("move","down",username,userNumber);
+		}
+		
+		if(rightDown === true && leftDown === true){
+			//Do nothing
+		}else if(rightDown === true){
+			socket.emit("move","right",username,userNumber);
+		}else if(leftDown === true){
+			socket.emit("move","left",username,userNumber);
+		}
+	  }, 50);
+	  
+	 socket.on("sendUsers",function(users){ 
+		for(i=(0);users.length - i;i = i + 1){		
+			if($("#User" + i).length > 0){
+				$("#User" + i).css("margin-left",users[i].posX*movementLength + "px");
+				$("#User" + i).css("margin-top",users[i].posY*movementLength + "px");
+			} else {
+				$("body").append("<div class='player' id='User" + i + "'></div>");
+				$("#User" + i).css("margin-left",users[i].posX*movementLength + "px");
+				$("#User" + i).css("margin-top",users[i].posY *movementLength + "px");
+			}
+			if(users[i].areaX === area.X && users[i].areaY === area.Y){
+				$("#User" + i).show();
+			}else if(users[i].areaX !== area.X || users[i].areaY !== area.Y){
+				$("#User" + i).hide();
+			}
+			if(users[i].userNumber === userNumber){
+				area.X = users[i].areaX
+				area.Y = users[i].areaY
+				$("#coordsText").html(area.X + "," + area.Y);
+			}
+		}
+	  });
+	  
+	  socket.on("userNumber",function(usersNumber){
+		userNumber = usersNumber;
+	  });
+	
+	while(mapLimit.X + mapLimit.Y != mapLimit.artX + mapLimit.artY){
+		mapLimit.artY = mapLimit.artY + 1;
+		if(mapLimit.artY > mapLimit.Y){
+			mapLimit.artX = mapLimit.artX + 1;
+			mapLimit.artY = 0;
+		}
+		$("body").append("<img src='http://www.farrow-ball.com/pws/client/images/catalogue/products/102005/zoom/102005.jpg' class='block' style='height: " + blockSize + "px;width:  " + blockSize + "px;background-color: white;position: absolute;display: inline;margin-left: " + mapLimit.artX * blockSize + "px;margin-top: " + mapLimit.artY * blockSize + "px;' id='" + mapLimit.artX.toString() + "_" + mapLimit.artY.toString() + "'> </img>");
+	}
+	
+	socket.on("sendBlocks",function(blocks,blocksCoords){
+		if(typeof blocksCoords[area.X + "_" + area.Y] !== "undefined"){
+		mapLimit.artX = 0;
+		mapLimit.artY = -1;
+		while(mapLimit.X + mapLimit.Y != mapLimit.artX + mapLimit.artY){
+			mapLimit.artY = mapLimit.artY + 1;
+			if(mapLimit.artY > mapLimit.Y){
+				mapLimit.artX = mapLimit.artX + 1;
+				mapLimit.artY = 0;
+			}
+			//Change block, executed for every art-coord.
+			if(typeof blocksCoords[area.X + "_" + area.Y][mapLimit.artX + "_" + mapLimit.artY] !== "undefined"){
+				switch(blocksCoords[area.X + "_" + area.Y][mapLimit.artX + "_" + mapLimit.artY].type){
+					case "wood":
+						$("#" + mapLimit.artX.toString() + "_" + mapLimit.artY.toString()).attr("src","https://db.tt/TyZBx7EG");
+						break;
+					case "empty":
+						$("#" + mapLimit.artX.toString() + "_" + mapLimit.artY.toString()).attr("src","https://db.tt/SdXqMMiE");
+						break;
+				}
+			}else if(typeof blocksCoords[area.X + "_" + area.Y][mapLimit.artX + "_" + mapLimit.artY] === "undefined"){
+				$("#" + mapLimit.artX.toString() + "_" + mapLimit.artY.toString()).attr("src","https://db.tt/SdXqMMiE");
+			}
+		}
+		}else if(typeof blocksCoords[area.X + "_" + area.Y] === "undefined"){
+			$(".block").css("background-color","white");
+		}
+		globalBlocksCoords = blocksCoords;
+	  });
+	  
+	  socket.on("usernameTaken",function(){
+		username = prompt("The username has already been taken, try another one?","Username");
+		socket.emit("usernameFunction",username);
+	  });
+	  
+	  socket.on("broadcast",function(msg){
+		alert(msg);
+	  });
+	  
+	  function broadcast(msg){
+		socket.emit("adminBroadcast",msg);
+	  }
+	  
+	  function block(coordsX,coordsY,areaX,areaY,type){
+		socket.emit("blockRequest",coordsX,coordsY,area.X,area.Y,type);
+	  }
+	  
+	  $(".block").click(function(){
+			switch(slots[slotSelected]){
+					case "wood":
+						$(this).attr("src","https://db.tt/TyZBx7EG");
+						break;
+					case "empty":
+						$(this).attr("src","https://db.tt/SdXqMMiE");
+						break;
+				}
+			//Converts block id into actual integer coords. 
+			for(charChecked = (0); $(this).attr("id").length > charChecked; charChecked = charChecked + 1){
+				if($(this).attr("id").charAt(charChecked) === "_"){
+					clicked.xMode = false;
+				}else if(clicked.xMode){
+					clicked.X = (clicked.X + $(this).attr("id").charAt(charChecked));
+				}else if(!clicked.xMode){
+					clicked.Y = (clicked.Y + $(this).attr("id").charAt(charChecked));
+				}
+					clicked.X = parseInt(clicked.X, 10);
+					clicked.Y = parseInt(clicked.Y, 10);
+					console.log(clicked.X.toString() + clicked.Y.toString());
+			}
+			//Calls blocks with the coords just generated. 
+			block(clicked.X,clicked.Y,area.X,area.Y,slots[slotSelected]);
+			//Resets variables
+			clicked.X = 0;
+			clicked.Y = 0;
+			clicked.xMode = true;
+		
+
+	    });
+	  
+	function changeSlotActiveBlock(slot,block){
+		slots[slot] = block;
+	}
+    </script>
+	<div id="slot1" class="slots" style="background-color: red;height: 50px;width: 50px;display: inline;position: absolute;margin-top: 560px;"></div> 
+	<div id="slot2" class="slots" style="background-color: green;height: 50px;width: 50px;display: inline;position: absolute;margin-top: 560px;margin-left: 70px;"></div>
+	<div id="slot3" class="slots" style="background-color: green;height: 50px;width: 50px;display: inline;position: absolute;margin-top: 560px;margin-left: 140px;"></div>
+	<div id="slot4" class="slots" style="background-color: green;height: 50px;width: 50px;display: inline;position: absolute;margin-top: 560px;margin-left: 210px;"></div>
+	<div id="slot5" class="slots" style="background-color: green;height: 50px;width: 50px;display: inline;position: absolute;margin-top: 560px;margin-left: 280px;"></div>   	
+	<h3 id="coordsText" style="display: inline;position: absolute;margin-left: 1000px;">Insert coords</h3>
+	<img src="https://db.tt/TyZBx7EG" style="display: inline;position: absolute;margin-left: 1000px;"></img>
+  </body>
+</html>
