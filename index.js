@@ -24,7 +24,9 @@ var mapLimit =  {X: 45, Y: 25, minAreaX: 0, minAreaY: 0, maxAreaX: 3, maxAreaY: 
 
 var startTimer = true;
 
-var blockTypes = {wood: {solid: true}, empty: {solid: false}}
+var blockTypes = {wood: {solid: true}, empty: {solid: false}, stone: {solid: true}, gravel: {solid: false},flower: {solid: false}, grass: {solid: false}}
+
+var x  = 0;
 
 app.get('/', function(req, res){
   res.sendFile(__dirname + '/index.html');
@@ -45,8 +47,11 @@ io.on('connection', function(socket){
 			"cooldown" : false,
 			"areaX" : 0,
 			"areaY" : 0,
-			"userNumber": usersNumber
+			"userNumber": usersNumber,
+			"inventory" : {wood : 5, stone: 2, flower: 0, grass: 0, gravel: 5},
+			"inventoryArray" : [{type: "grass", quantity : 0},{type: "wood", quantity : 5}, {type: "stone", quantity: 2}, {type: "flower", quantity: 0}, {type: "gravel", quantity: 5}]
 		});
+		console.log(users[usersNumber].inventory);
 		usersID[username]  = {
 			"username": username,
 			"socketID": socket.id,
@@ -127,7 +132,6 @@ io.on('connection', function(socket){
 							users[userNumber].posY = users[userNumber].prevPosY
 							users[userNumber].posX = users[userNumber].prevPosX
 						}
-						console.log(users[userNumber].areaX  + " " + users[userNumber].areaY);
 					}	
 				}
 			}
@@ -149,8 +153,35 @@ io.on('connection', function(socket){
 			io.emit("broadcast",msg);
 		}
 	});
-	socket.on("blockRequest", function(coordsX,coordsY,areaX,areaY,type){
-			block(coordsX,coordsY,areaX,areaY,type);
+	socket.on("blockRequest", function(coordsX,coordsY,areaX,areaY,type,userRequest){
+			if(typeof usersID[userRequest] !== "undefined"){
+				if(usersID[userRequest].socketID === socket.id){
+					if(type === "empty"){
+						if(typeof blocks[areaX + "_" + areaY][coordsX + "_" + coordsY] !== "undefined"){
+							users[usersID[userRequest].userNumber]["inventory"][blocks[areaX + "_" + areaY][coordsX + "_" + coordsY].type]++;
+							for(x = 0;x < users[usersID[userRequest].userNumber]["inventoryArray"].length; x = x +1){
+								if(users[usersID[userRequest].userNumber]["inventoryArray"][x].type === blocks[areaX + "_" + areaY][coordsX + "_" + coordsY].type){
+									users[usersID[userRequest].userNumber]["inventoryArray"][x].quantity++;
+								}
+							}
+							block(coordsX,coordsY,areaX,areaY,type);
+						}	
+					}else{
+						if(users[usersID[userRequest].userNumber]["inventory"][type] > 0){
+							if(typeof blocks[areaX + "_" + areaY][coordsX + "_" + coordsY] === "undefined" || blocks[areaX + "_" + areaY][coordsX + "_" + coordsY].type === "empty"){
+								users[usersID[userRequest].userNumber]["inventory"][type] = users[usersID[userRequest].userNumber]["inventory"][type] - 1;
+								for(x = 0;x < users[usersID[userRequest].userNumber]["inventoryArray"].length; x = x +1){
+									if(users[usersID[userRequest].userNumber]["inventoryArray"][x].type === type){
+										users[usersID[userRequest].userNumber]["inventoryArray"][x].quantity--;
+									}
+								}
+								block(coordsX,coordsY,areaX,areaY,type);
+								console.log(users[usersID[userRequest].userNumber]["inventoryArray"][1].quantity);
+							}
+						}
+					}
+				}		
+			}
 	});
 });
 
@@ -161,7 +192,7 @@ function block(posX, posY, areaX, areaY, type){
 	if(typeof blocks[areaX + "_" + areaY] === "undefined"){
 		blocks[areaX+ "_" + areaY] = {};
 	}
-	if(typeof blockTypes[type] != "undefined"){
+	if(typeof blockTypes[type] !== "undefined"){
 		if(blockTypes[type].solid){
 			blocksClient[areaX + "_" + areaY].push({"posX" : posX, "posY" : posY, "solid" : true, "type" : type});
 			blocks[areaX+ "_" + areaY][posX + "_" + posY] = {"posX" : posX, "posY" : posY, "solid" : true, "type" : type}
@@ -170,7 +201,7 @@ function block(posX, posY, areaX, areaY, type){
 			blocks[areaX+ "_" + areaY][posX + "_" + posY] = {"posX" : posX, "posY" : posY, "solid" : false, "type" : type}
 		}
 		if(!startTimer){
-			console.log(posX + " " + posY + " " + areaX + " " + areaY + "  " + type);
+			console.log("Block - X: " + posX + " Y: " + posY + " aX: " + areaX + " aY: " + areaY + " Type: " + type);
 		}
 	}
 }
@@ -186,10 +217,10 @@ block(0, 3, 0, 0,  "empty");
 block(0, 4, 0, 0,  "empty");
 block(1, 1, 0, 0,  "wood");
 block(1, 2, 0, 0,  "empty");
-block(1, 3, 0, 0,  "empty");
-block(1, 4, 0, 0,  "empty");
-block(2, 1, 0, 0,  "empty");
-block(2, 2, 0, 0,  "empty");
+block(1, 3, 0, 0,  "flower");
+block(1, 4, 0, 0,  "flower");
+block(2, 1, 0, 0,  "grass");
+block(2, 2, 0, 0,  "grass");
 block(2, 3, 0, 0,  "empty");
 block(2, 4, 0, 0,  "empty");
 block(3, 1, 0, 0,  "empty");

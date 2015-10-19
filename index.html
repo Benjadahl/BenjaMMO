@@ -10,14 +10,18 @@
 		position: absolute;
 		display: inline;
 	  }
+	  .slotNumber{
+		font-family: arial;
+	  }
     </style>
   </head>
   <body>
 	<script src="https://cdn.socket.io/socket.io-1.2.0.js"></script>
-    <script src="http://code.jquery.com/jquery-1.11.1.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
 	
     <script>
-      var socket = io();
+      $(document).ready(function(){
+	  var socket = io();
 	  var username = prompt("What is your name?","Username");
 	  
 	  var p1mTop = (0);
@@ -49,14 +53,22 @@
 	  var clientType = "empty";
 	  var slotSelected = (1);
 	  
-	  var slots = ["N/A","wood","empty"]
+	  var slots = ["N/A","empty","wood"]
 	  
 	  var charChecked = 0;
 	  
 	  var clicked = {X: 0, Y: 0, xMode: true}
 	  
+	  var inventory = {}
+	  var inventoryArray = []
 	  
+	  var iL = 0;
 	  
+	  var updateInventoryTimer = 0;
+	  
+	  var inventoryListItems = 0;
+	  
+	  var texture = {grass: "https://db.tt/iesyXYS2", flower: "https://db.tt/ole0Dm1x", wood: "https://db.tt/TyZBx7EG", stone: "https://db.tt/GubvjqiF", empty: "https://db.tt/SdXqMMiE", gravel: "https://db.tt/qKZsvtv9"}
 	  //on connection
 	  socket.emit("usernameFunction",username);
 	  
@@ -158,6 +170,11 @@
 				area.Y = users[i].areaY
 				$("#coordsText").html(area.X + "," + area.Y);
 			}
+			if(users[i].userNumber === userNumber){
+				inventory = users[i].inventory;
+				inventoryArray = users[i].inventoryArray;
+				updateInventory();
+			}
 		}
 	  });
 	  
@@ -171,7 +188,7 @@
 			mapLimit.artX = mapLimit.artX + 1;
 			mapLimit.artY = 0;
 		}
-		$("body").append("<img src='http://www.farrow-ball.com/pws/client/images/catalogue/products/102005/zoom/102005.jpg' class='block' style='height: " + blockSize + "px;width:  " + blockSize + "px;background-color: white;position: absolute;display: inline;margin-left: " + mapLimit.artX * blockSize + "px;margin-top: " + mapLimit.artY * blockSize + "px;' id='" + mapLimit.artX.toString() + "_" + mapLimit.artY.toString() + "'> </img>");
+		$("body").append("<img src='https://db.tt/SdXqMMiE' class='block' style='height: " + blockSize + "px;width:  " + blockSize + "px;background-color: white;position: absolute;display: inline;margin-left: " + mapLimit.artX * blockSize + "px;margin-top: " + mapLimit.artY * blockSize + "px;' id='" + mapLimit.artX.toString() + "_" + mapLimit.artY.toString() + "'> </img>");
 	}
 	
 	socket.on("sendBlocks",function(blocks,blocksCoords){
@@ -186,14 +203,18 @@
 			}
 			//Change block, executed for every art-coord.
 			if(typeof blocksCoords[area.X + "_" + area.Y][mapLimit.artX + "_" + mapLimit.artY] !== "undefined"){
-				switch(blocksCoords[area.X + "_" + area.Y][mapLimit.artX + "_" + mapLimit.artY].type){
+				$("#" + mapLimit.artX.toString() + "_" + mapLimit.artY.toString()).attr("src",texture[blocksCoords[area.X + "_" + area.Y][mapLimit.artX + "_" + mapLimit.artY].type]);
+				/*switch(blocksCoords[area.X + "_" + area.Y][mapLimit.artX + "_" + mapLimit.artY].type){
 					case "wood":
 						$("#" + mapLimit.artX.toString() + "_" + mapLimit.artY.toString()).attr("src","https://db.tt/TyZBx7EG");
+						break;
+					case "stone":
+						$("#" + mapLimit.artX.toString() + "_" + mapLimit.artY.toString()).attr("src","https://db.tt/GubvjqiF");
 						break;
 					case "empty":
 						$("#" + mapLimit.artX.toString() + "_" + mapLimit.artY.toString()).attr("src","https://db.tt/SdXqMMiE");
 						break;
-				}
+				}*/
 			}else if(typeof blocksCoords[area.X + "_" + area.Y][mapLimit.artX + "_" + mapLimit.artY] === "undefined"){
 				$("#" + mapLimit.artX.toString() + "_" + mapLimit.artY.toString()).attr("src","https://db.tt/SdXqMMiE");
 			}
@@ -217,19 +238,21 @@
 		socket.emit("adminBroadcast",msg);
 	  }
 	  
-	  function block(coordsX,coordsY,areaX,areaY,type){
-		socket.emit("blockRequest",coordsX,coordsY,area.X,area.Y,type);
+	  function block(coordsX,coordsY,areaX,areaY,type,user){
+		socket.emit("blockRequest",coordsX,coordsY,area.X,area.Y,type,user);
 	  }
 	  
+	  //Click on block
 	  $(".block").click(function(){
-			switch(slots[slotSelected]){
+			$(this).attr("src",texture[slots[slotSelected]]);
+			/*switch(slots[slotSelected]){
 					case "wood":
 						$(this).attr("src","https://db.tt/TyZBx7EG");
 						break;
 					case "empty":
 						$(this).attr("src","https://db.tt/SdXqMMiE");
 						break;
-				}
+				}*/
 			//Converts block id into actual integer coords. 
 			for(charChecked = (0); $(this).attr("id").length > charChecked; charChecked = charChecked + 1){
 				if($(this).attr("id").charAt(charChecked) === "_"){
@@ -241,10 +264,9 @@
 				}
 					clicked.X = parseInt(clicked.X, 10);
 					clicked.Y = parseInt(clicked.Y, 10);
-					console.log(clicked.X.toString() + clicked.Y.toString());
 			}
 			//Calls blocks with the coords just generated. 
-			block(clicked.X,clicked.Y,area.X,area.Y,slots[slotSelected]);
+			block(clicked.X,clicked.Y,area.X,area.Y,slots[slotSelected],username);
 			//Resets variables
 			clicked.X = 0;
 			clicked.Y = 0;
@@ -256,13 +278,59 @@
 	function changeSlotActiveBlock(slot,block){
 		slots[slot] = block;
 	}
+	
+	function updateInventory(){
+		for(iL = inventoryArray.length - 1; iL > -1 ; iL = iL - 1){
+			if($("#" + inventoryArray[iL].type).length > 0){
+				if(updateInventoryTimer > 40){
+					updateInventoryTimer = -1;
+					$("#" + inventoryArray[iL].type).html(inventoryArray[iL].quantity + " " + inventoryArray[iL].type);
+					console.log("update" + inventoryArray[iL].type);
+				}else{
+					updateInventoryTimer++;
+				}
+			}else{
+				inventoryListItems++;
+				$("body").append("<h3 class='inventoryList' id='" + inventoryArray[iL].type + "' style='display: inline;position: absolute;margin-left: 965px;margin-top: " + (25 * inventoryListItems + 100) + "px;font-family: arial;'>" + inventoryArray[iL].quantity + " " + inventoryArray[iL].type + "</h3>");
+				console.log("append");
+			}
+		}
+	}	
+	
+	$("body").on("click", ".inventoryList", function(){
+			if(slotSelected !== 1){
+				slots[slotSelected] = $(this).attr("id");
+			}
+			console.log($(this).attr("id"));
+			updateSlotText();
+		});
+	
+	//Update slot text
+	function updateSlotText(){
+		$("#slotText1").html(slots[1]);
+		$("#slotText2").html(slots[2]);
+		$("#slotText3").html(slots[3]);
+		$("#slotText4").html(slots[4]);
+		$("#slotText5").html(slots[5]);
+	}
+	updateSlotText();
+	});
     </script>
-	<div id="slot1" class="slots" style="background-color: red;height: 50px;width: 50px;display: inline;position: absolute;margin-top: 560px;"></div> 
-	<div id="slot2" class="slots" style="background-color: green;height: 50px;width: 50px;display: inline;position: absolute;margin-top: 560px;margin-left: 70px;"></div>
-	<div id="slot3" class="slots" style="background-color: green;height: 50px;width: 50px;display: inline;position: absolute;margin-top: 560px;margin-left: 140px;"></div>
-	<div id="slot4" class="slots" style="background-color: green;height: 50px;width: 50px;display: inline;position: absolute;margin-top: 560px;margin-left: 210px;"></div>
-	<div id="slot5" class="slots" style="background-color: green;height: 50px;width: 50px;display: inline;position: absolute;margin-top: 560px;margin-left: 280px;"></div>   	
-	<h3 id="coordsText" style="display: inline;position: absolute;margin-left: 1000px;">Insert coords</h3>
-	<img src="https://db.tt/TyZBx7EG" style="display: inline;position: absolute;margin-left: 1000px;"></img>
+	<div id="slot1" class="slots" style="background-color: red;height: 50px;width: 50px;display: inline;position: absolute;margin-top: 560px;"><h4 class="slotText" id="slotText1" style="text-align: center;margin-top: 1px;">Slot 1</h1></div> 
+	<div id="slot2" class="slots" style="background-color: green;height: 50px;width: 50px;display: inline;position: absolute;margin-top: 560px;margin-left: 70px;"><h4 class="slotText" id="slotText2" style="text-align: center;margin-top: 1px;">Slot 2</h1></div>
+	<div id="slot3" class="slots" style="background-color: green;height: 50px;width: 50px;display: inline;position: absolute;margin-top: 560px;margin-left: 140px;"><h4 class="slotText" id="slotText3" style="text-align: center;margin-top: 1px;">Slot 3</h1></div>
+	<div id="slot4" class="slots" style="background-color: green;height: 50px;width: 50px;display: inline;position: absolute;margin-top: 560px;margin-left: 210px;"><h4 class="slotText" id="slotText4" style="text-align: center;margin-top: 1px;">Slot 4</h1></div>
+	<div id="slot5" class="slots" style="background-color: green;height: 50px;width: 50px;display: inline;position: absolute;margin-top: 560px;margin-left: 280px;"><h4 class="slotText" id="slotText5" style="text-align: center;margin-top: 1px;">Slot 5</h1></div>
+	<h2 class="slotNumber" style="position: absolute;display: inline;margin-top: 620px;margin-left: 19px;">1</h2>
+	<h2 class="slotNumber" style="position: absolute;display: inline;margin-top: 620px;margin-left: 89px;">2</h2>
+	<h3 class="slotNumber" style="position: absolute;display: inline;margin-top: 620px;margin-left: 159px;">3</h3>
+	<h2 class="slotNumber" style="position: absolute;display: inline;margin-top: 620px;margin-left: 229px;">4</h2>
+	<h2 class="slotNumber" style="position: absolute;display: inline;margin-top: 620px;margin-left: 299px;">5</h2>
+	<h2 style="position: absolute;display: inline;margin-top: 650px;font-family: arial;" >Click the item in your inventory to bind it to the currently selected key</h2>
+	<h3 id="coordsText" style="display: inline;position: absolute;margin-left: 950px;">Insert coords</h3>
+	<h2 id="inventory" style="display: inline;position: absolute;margin-left: 950px;margin-top: 100px;font-family: arial;">Inventory:</h2>
+	<script>
+	
+	</script>
   </body>
 </html>
