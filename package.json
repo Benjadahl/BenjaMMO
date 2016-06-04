@@ -1,9 +1,10 @@
 {
-  "name": "socket-chat-example",
-  "version": "0.0.1",
-  "description": "my first socket.io app",
+  "name": "BenjaMMO",
+  "version": "0.0.2",
+  "description": "An MMO about placing and breaking blocks",
   "dependencies": {
     "express": "~4.10.2",
-    "socket.io": "~1.2.0"
+    "socket.io": "~1.2.0",
+    "request": "~2.69.0"
   }
 }

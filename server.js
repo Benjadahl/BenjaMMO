@@ -4,7 +4,7 @@ var io = require('socket.io')(http);
 var fs = require('fs');
 var path = require('path');
 
-console.log('\033[2J');
+//console.log('\033[2J');
 var startMSG = ["                  Welcome to",
  "       _ ____              _____ ______ _______      ________ _____        ",
  "      | |  _ \\            / ____|  ____|  __ \\ \\    / /  ____|  __ \\       ",
@@ -115,76 +115,7 @@ app.get('/', function(req, res){
 io.on('connection', function(socket){
 	console.log("A client connected " + socket.id);
 
-	socket.on("usernameFunction",function(username){
-        if(typeof usersID[username] != "undefined" || true){
-    	    fs.readFile("./SaveFiles/Players/Player_" + username + ".txt", 'utf8', function (err,data) {
-    	        console.log("Trying to load player file");
-              if (err) {
-                var isAdmin = false;
-                if(admins.indexOf(username) != -1){
-                    isAdmin = true;
-                }
-                console.log("A user just pushed " + username);
-    		    users.push ({
-        			"username": username,
-        			"userNumber": usersNumber,
-        			"posX" : 0,
-        			"posY" : 0,
-        			"prevPosY" : 0,
-        			"prevPosX" : 0,
-        			"cooldown" : false,
-        			"areaX" : 0,
-        			"areaY" : 0,
-        			"inventory" : {wood : 1000, stone: 1000, flower: 1000, grass: 1000, gravel: 1000, door: 1000, stonefloor: 1000},
-        			"inventoryArray" : [{type: "grass", quantity : 1000},{type: "wood", quantity : 1000}, {type: "stone", quantity: 1000}, {type: "flower", quantity: 1000}, {type: "gravel", quantity: 1000}, {type: "door", quantity: 1000}, {type: "stonefloor", quantity: 1000}]});
-    		    usersID[username]  = {
-        			"username": username,
-        			"socketID": socket.id,
-        			"userNumber": usersNumber,
-        			"isAdmin" : false
-    		    };
-                io.to(socket.id).emit("userNumber", usersNumber, users[usersNumber]);
-                io.to(socket.id).emit("startBlocks", blocks);
-                usersNumber = usersNumber + 1;
-                return console.log("Could not find player save file, Initialising player data");
-              }
-                var player = JSON.parse(data);
-                player.userNumber = usersNumber;
-                var isAdmin = false;
-                if(admins.indexOf(username) != -1){
-                    isAdmin = true;
-                }
-                usersID[username] = {
-                    "username": username,
-                    "socketID": socket.id,
-                    "userNumber": usersNumber,
-                    "isAdmin" : isAdmin
-                }
-                io.to(socket.id).emit("userNumber", usersNumber, player);
-                console.log("Sending blocks");
-                io.to(socket.id).emit("startBlocks", blocks);
-                users.push(player);
-                console.log("Gave " + username + " new ID of " + usersNumber);
-                usersNumber++;
-                console.log("PLayer loaded from file");
-            });
-	    }
-        /*if(!path.existsSync('./SaveFiles/Players/PLayer_' + username + '.txt')){
-
-            //console.log("Users online: ");
-            //console.log(usersID);
-        }else{
-            //Loading player from saves
-            fs.readFile('./SaveFiles/PLayer_' + username + '.txt', 'utf8', function (err,data) {
-                if (err) {
-                    return console.log("Could not find player save file");
-                }
-
-                player = JSON.parse(data);
-
-            });
-        }*/
-  });
+	
 
 
 
@@ -293,33 +224,7 @@ io.on('connection', function(socket){
 
 
 
-	socket.on("disconnect", function(){
-		console.log("A client disconnected " + socket.id);
-		var playerNum = getPlayerWithSocketID(socket.id);
-
-
-
-		if(typeof users[playerNum] != "undefined"){
-		    var player = users[playerNum];
-		    fs.writeFile("./SaveFiles/Players/Player_" + player.username + ".txt",JSON.stringify(player), function(err) {
-                if(err) {
-                    return console.log(err);
-                }
-
-                console.log("Saving player '" + player.userNumber + "' with name '" + player.username + "' to './SaveFiles/Players/player_" + player.username + ".txt'");
-
-            });
-
-		}
-		console.log("Deleting player from arrays");
-		   try{
-            usersID[users[playerNum].username] = "undefined";
-            users[playerNum] = "undefined";
-		   }catch(err){
-		       console.log("Got error then while deleting player");
-		   }
-		//[DELETE PLAYER HERE]
-	});
+	
 		//Log client IP
 	console.log(socket.request.connection.remoteAddress);
 	socket.on("adminBroadcast", function(msg){
@@ -377,7 +282,100 @@ io.on('connection', function(socket){
 	    }
 	   
 	});
+	
+	//Authentication with Facebook, and loading players into the gameServer's memory
+	socket.on("authToken",function(token){
+        console.log(token);
+        /*var httpOptions = {
+            host: 'https://graph.facebook.com/me?access_token=' + token,
+            port: 80
+        };*/
+        
+        var request = require("request");
+        //var data = {};
+        request({uri: "https://graph.facebook.com/me?access_token=" + token,}, function(error, response, body) {
+            //console.log(JSON.parse(body).id);
+            console.log(body);
+          var id;
+          if(body != "undefined"){
+              id = JSON.parse(body).id;
+          }else{
+              id = "undefined";
+          }
+          
+          fs.readFile("./SaveFiles/Players/" + id + ".txt", "utf8", function(err, data) {
+              //Detect if the id already exists in the player list
+              if(err){
+                  
+                  //Make new player here
+                  users.push ({
+        			"username": JSON.parse(body).name,
+        			"userNumber": usersNumber,
+        			"posX" : 0,
+        			"posY" : 0,
+        			"prevPosY" : 0,
+        			"prevPosX" : 0,
+        			"cooldown" : false,
+        			"areaX" : 0,
+        			"areaY" : 0,
+        			"inventory" : {wood : 1000, stone: 1000, flower: 1000, grass: 1000, gravel: 1000, door: 1000, stonefloor: 1000},
+        			"inventoryArray" : [{type: "grass", quantity : 1000},{type: "wood", quantity : 1000}, {type: "stone", quantity: 1000}, {type: "flower", quantity: 1000}, {type: "gravel", quantity: 1000}, {type: "door", quantity: 1000}, {type: "stonefloor", quantity: 1000}]});
+    		      usersID[JSON.parse(body).name]  = {
+        			"username": JSON.parse(body).name,
+        			"socketID": socket.id,
+        			"userNumber": usersNumber,
+        			"isAdmin" : false,
+        			"facebookID" : id
+    		       };
+    		       
+    		       io.to(socket.id).emit("userNumber", usersNumber, users[usersNumber]);
+                    io.to(socket.id).emit("startBlocks", blocks);
+                    
+                  
+                  fs.writeFile("./SaveFiles/Players/" + id + ".txt", JSON.stringify(users[usersNumber]) ,"utf8", function(err){ 
+                      //Do nothing, for some reason this will result in an error every time
+                  });
+                  usersNumber = usersNumber + 1;
+                  
+              }else{
+                  
+                var player = JSON.parse(data);
+                player.userNumber = usersNumber;
+                var isAdmin = false;
+                if(admins.indexOf(JSON.parse(body).name) != -1){
+                    isAdmin = true;
+                }
+                usersID[JSON.parse(body).name] = {
+                    "username": JSON.parse(body).name,
+                    "socketID": socket.id,
+                    "userNumber": usersNumber,
+                    "isAdmin" : isAdmin,
+                    "facebookID" : id
+                }
+                io.to(socket.id).emit("userNumber", usersNumber, player);
+                console.log("Sending blocks");
+                io.to(socket.id).emit("startBlocks", blocks);
+                users.push(player);
+                console.log("Gave " + JSON.parse(body).name + " new ID of " + usersNumber);
+                usersNumber++;
+                console.log("PLayer loaded from file");
+                  
+              }
+          });
+          
+          
+          
+
+          
+          
+            
+        });
+    });
+    
+    
 });
+
+
 
 function emitMSG(msg, emitAs){
     io.emit("newMsg", msg, emitAs);
@@ -756,7 +754,7 @@ switch(args[0]){
         console.log("HELLO JULIAN J. Teule, HOW ARE YOU. :-)");
         break;
     default:
-        console.log("WHAT ARE THOOOOOOOSSSE");
+        console.log("That's not a command, stupid");
     }
 
 
