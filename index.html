@@ -1,6 +1,8 @@
 <!doctype html>
-<html manifest="benjaMMO.appcache">
+<html>
   <head>
+    <meta name="License" content="---Copyright 2015 Benjamin Dahl Mikkelsen & Julian Jørgensen Teule---">
+    <meta name="Application" content="BenjaMMO">
     <title>BenjaMMO - TestBuild</title>
     <style>
       .player  {
@@ -13,107 +15,198 @@
 	  .slotNumber{
 		font-family: arial;
 	  }
+	  .chatWindow{
+	  	position: absolute;
+	  	left: 1100px;
+	  	width: 200px;
+	  	height: 500px;
+	  	border : solid;
+	  	overflow : scroll;
+	  	font-family : courier;
+	  	font-size : 12px;
+	  }
+	  
     </style>
   </head>
   <body>
 	<script src="https://cdn.socket.io/socket.io-1.2.0.js"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
-	
+
     <script>
       $(document).ready(function(){
 	  var socket = io();
 	  var username = prompt("What is your name?","Username");
-	  
-	  var p1mTop = (0);
-	  var p1mLeft = (0);
-	  
-	  var p2mTop = (0);
-	  var p2mLeft = (0);
-	  
+
+//set gamevars
 	  var i = (0);
 	  var userNumber = (0);
-	  
+
+    var blocks
+
 	  var upDown = false;
 	  var downDown = false;
 	  var rightDown = false;
 	  var leftDown = false;
-	  
+
+      var local = {X: 0, Y:0, prev:{X: 0, Y: 0}};
+
 	  var movementLength = (20);
-	  
+
 	  var blockCount = ("0,0");
-	  
+
 	  var blockSize = (20);
-	  
-	  var mapLimit =  {X: 45, Y: 25, artX: 0, artY: -1}
-	  
-	  var globalBlocksCoords = {};
-	  
-	  var area = {X: 0, Y: 0}
-	  
+
+	  var mapLimit =  {X: 45, Y: 25, artX: 0, artY: -1, maxAreaX: 30, maxAreaY: 30, minAreaX: 0, minAreaY: 0};
+
+	  var blocks = {};
+
+	  var area = {X: 0, Y: 0};
+
 	  var clientType = "empty";
 	  var slotSelected = (1);
-	  
-	  var slots = ["N/A","empty","wood"]
-	  
+
+	  var slots = ["N/A","empty","wood"];
+
 	  var charChecked = 0;
-	  
-	  var clicked = {X: 0, Y: 0, xMode: true}
-	  
-	  var inventory = {}
-	  var inventoryArray = []
-	  
+
+	  var clicked = {X: 0, Y: 0, xMode: true};
+
+	  var inventory = {};
+	  var inventoryArray = [];
+
 	  var iL = 0;
-	  
+
 	  var updateInventoryTimer = 0;
-	  
+
 	  var inventoryListItems = 0;
-	  
-	  var texture = {grass: "https://db.tt/iesyXYS2", flower: "https://db.tt/ole0Dm1x", wood: "https://db.tt/TyZBx7EG", stone: "https://db.tt/GubvjqiF", empty: "https://db.tt/SdXqMMiE", gravel: "https://db.tt/qKZsvtv9"}
+
+      var texturePath = "http://178.62.252.59/Textures/";
+	  var texture = {grass: "grass.png", flower: "flowers.png", wood: "wood.png", stone: "stone.png", empty: "dirt.png", gravel: "gravel.png", door: "door.png", stonefloor: "stone.png"}
+
+	  var blockTypes = {wood: {solid: true}, empty: {solid: false}, stone: {solid: true}, gravel: {solid: false},flower: {solid: false}, grass: {solid: false}, door: {solid: false}, stonefloor: {solid: false}};
+
+      var firstUpdate = true;
+
+
 	  //on connection
 	  socket.emit("usernameFunction",username);
-	  
+      //Fuction to update toolbar colour
+      function updateToolbarColours (){
+        $(".slots").css("background-color","green");
+		$("#slot" + slotSelected).css("background-color","red");
+      }
+
+      //Function to move player to previous location
+      function moveToPrev(){
+        local.X = local.prev.X
+		local.Y = local.prev.Y
+      }
+
+      //Function to check if the players area needs to be changed
+      function checkArea(){
+      	console.log(mapLimit.minAreaX + ", " + mapLimit.minAreaY + "    " + area.X + ", " + area.Y);
+          if(mapLimit.X < local.X && mapLimit.maxAreaX != area.X){
+          	console.log(local.X);
+		  	local.X = 0;
+		  	area.X = area.X + 1;
+		  	updateBlocks(blocks);
+		  }else if(mapLimit.X < local.X && mapLimit.maxAreaX == area.X){
+		  	moveToPrev();
+		  }
+		  if(0 > local.X && mapLimit.minAreaX != area.X){
+		  	//console.log("Im fucking this up   "  + "    " + mapLimit.minAreaX + "    " + area.X);
+		  	console.log(local.X);
+		  	local.X = mapLimit.X;
+		  	area.X = area.X - 1;
+		  	updateBlocks(blocks);
+		  }else if(0 > local.X && mapLimit.minAreaX == area.X){
+		  	moveToPrev();
+		  }
+		  if(mapLimit.Y < local.Y && mapLimit.maxAreaY != area.Y){
+		  	//console.log("Im fucking thisasds up   " +"    " + mapLimit.minAreaY + "    " + area.Y);
+		  	console.log(local.Y);
+		  	local.Y = 0;
+		  	area.Y = area.Y + 1;
+		  	updateBlocks(blocks);
+		  }else if(mapLimit.Y < local.Y && mapLimit.maxAreaY == area.Y){
+		  	moveToPrev();
+		  }
+		  if(0 > local.Y && mapLimit.minAreaY != area.Y){
+		  	console.log(local.Y);
+		  	local.Y = mapLimit.Y;
+		  	area.Y = area.Y - 1;
+		  	updateBlocks(blocks);
+		  }else if(0 > local.Y && mapLimit.minAreaY == area.Y){
+		  	moveToPrev();
+		  }
+      }
+
+      function updateBlocks(blocksCoords){
+        if(typeof blocksCoords[area.X + "_" + area.Y] !== "undefined"){
+    		mapLimit.artX = 0;
+    		mapLimit.artY = -1;
+    		while(mapLimit.X + mapLimit.Y != mapLimit.artX + mapLimit.artY){
+    			mapLimit.artY = mapLimit.artY + 1;
+    			if(mapLimit.artY > mapLimit.Y){
+    				mapLimit.artX = mapLimit.artX + 1;
+    				mapLimit.artY = 0;
+    			}
+    			//Change block, executed for every art-coord.
+    			if(typeof blocksCoords[area.X + "_" + area.Y][mapLimit.artX + "_" + mapLimit.artY] !== "undefined"){
+    				$("#" + mapLimit.artX.toString() + "_" + mapLimit.artY.toString()).attr("src",texturePath + texture[blocksCoords[area.X + "_" + area.Y][mapLimit.artX + "_" + mapLimit.artY].type]);
+    			}else if(typeof blocksCoords[area.X + "_" + area.Y][mapLimit.artX + "_" + mapLimit.artY] === "undefined"){
+    				$("#" + mapLimit.artX.toString() + "_" + mapLimit.artY.toString()).attr("src",texturePath + texture.empty);
+    			}
+    		}
+		}else if(typeof blocksCoords[area.X + "_" + area.Y] === "undefined"){
+			$(".block").css("background-color","white");
+		}
+		blocks = blocksCoords;
+        //console.log("Blocks updated");
+      }
+
+    //Check if keys are pushed down
 	  $(document).keydown(function(key) {
 	    switch(parseInt(key.which,10)) {
 			//up, down, right, left
 			case 87:
-				upDown = true;				
+				upDown = true;
 				break;
 			case 83:
-				downDown = true;				
+				downDown = true;
 				break;
 			case 68:
-				rightDown = true;				
+				rightDown = true;
 				break;
 			case 65:
 				leftDown = true;
 				break;
 			case 49:
 				slotSelected = (1);
-				$(".slots").css("background-color","green");
-				$("#slot" + slotSelected).css("background-color","red");
+                updateToolbarColours();
 				break;
 			case 50:
 				slotSelected = (2);
-				$(".slots").css("background-color","green");
-				$("#slot" + slotSelected).css("background-color","red");
+				updateToolbarColours();
 				break;
 			case 51:
 				slotSelected = (3);
-				$(".slots").css("background-color","green");
-				$("#slot" + slotSelected).css("background-color","red");
+				updateToolbarColours();
 				break;
 			case 52:
 				slotSelected = (4);
-				$(".slots").css("background-color","green");
-				$("#slot" + slotSelected).css("background-color","red");
+				updateToolbarColours();
 				break;
 			case 53:
 				slotSelected = (5);
-				$(".slots").css("background-color","green");
-				$("#slot" + slotSelected).css("background-color","red");
-				break;	
+				updateToolbarColours();
+				break;
+			case 13:
+				broadcast(document.getElementById("chatMSG").value);
 		}
 	  });
+
+      //Checks if keys are realeased
       $(document).keyup(function(key) {
 	    switch(parseInt(key.which,10)) {
 			//up, down, right, left
@@ -131,57 +224,123 @@
 				break;
 		}
 	  });
-	  
+
+		//Teleporting
+		socket.on("Teleport", function(toX, toY, posX, posY) {
+		   area.X = toX;
+		   area.Y = toY;
+		   local.X = posX;
+		   local.Y = posY;
+		   
+		   updateBlocks(blocks); 
+		});
+		
+		
+		
+		
+    //Movement
+        //Starting move, makes the server send a playerPosUpdate
+        socket.emit("move","up",username,userNumber);
+
 	  setInterval(function (){
+		local.prev.X = local.X
+		local.prev.Y = local.Y
 		if(upDown === true && downDown === true){
 			//Do nothing
 		}else if(upDown === true){
 			socket.emit("move","up",username,userNumber);
+            local.Y--;
 		}else if(downDown === true){
 			socket.emit("move","down",username,userNumber);
-		}
-		
-		if(rightDown === true && leftDown === true){
+			local.Y++;
+		}else if(rightDown === true && leftDown === true){
 			//Do nothing
 		}else if(rightDown === true){
 			socket.emit("move","right",username,userNumber);
+            local.X++;
 		}else if(leftDown === true){
 			socket.emit("move","left",username,userNumber);
+			local.X--;
 		}
+        if(typeof blocks[area.X + "_" + area.Y] !== "undefined"){
+          if(typeof blocks[area.X + "_" + area.Y][local.X + "_" + local.Y] !== "undefined"){
+            if(blocks[area.X + "_" + area.Y][local.X + "_" + local.Y].solid){
+              moveToPrev();
+              
+              //Bookmark1
+            }
+          }
+        }
+        checkArea();
+        $("#User" + userNumber).css("margin-left",local.X*movementLength + "px");
+        $("#User" + userNumber).css("margin-top",local.Y*movementLength + "px");
 	  }, 50);
-	  
-	 socket.on("sendUsers",function(users){ 
-		for(i=(0);users.length - i;i = i + 1){		
-			if($("#User" + i).length > 0){
-				$("#User" + i).css("margin-left",users[i].posX*movementLength + "px");
-				$("#User" + i).css("margin-top",users[i].posY*movementLength + "px");
-			} else {
-				$("body").append("<div class='player' id='User" + i + "'></div>");
-				$("#User" + i).css("margin-left",users[i].posX*movementLength + "px");
-				$("#User" + i).css("margin-top",users[i].posY *movementLength + "px");
-			}
-			if(users[i].areaX === area.X && users[i].areaY === area.Y){
-				$("#User" + i).show();
-			}else if(users[i].areaX !== area.X || users[i].areaY !== area.Y){
-				$("#User" + i).hide();
-			}
-			if(users[i].userNumber === userNumber){
-				area.X = users[i].areaX
-				area.Y = users[i].areaY
-				$("#coordsText").html(area.X + "," + area.Y);
-			}
-			if(users[i].userNumber === userNumber){
-				inventory = users[i].inventory;
-				inventoryArray = users[i].inventoryArray;
-				updateInventory();
-			}
-		}
-	  });
-	  
-	  socket.on("userNumber",function(usersNumber){
+
+
+
+
+    //Get players
+	socket.on("sendUsers",function(users){
+	    //console.log("Got users from server");
+        for(i=(0);users.length - i;i = i + 1){
+        	if($("#User" + i).length > 0){
+        	    if(i !== userNumber){
+        	        console.log(users[i]);
+        	        if(typeof users[i] !== "undefined"){
+        	        //Its the { } again :-()
+        	        //And remember, make the backuop script
+        	            //console.log(users[i].username + "     " + users[i].online);
+                        
+            			    $("#User" + i).css("margin-left",users[i].posX*movementLength + "px");
+            			    $("#User" + i).css("margin-top",users[i].posY*movementLength + "px");
+            			
+                           
+            	        
+        	        }else{
+        	            $("#User" + i).remove();
+        	        }
+        		}
+        	} else {
+        		$("body").append("<div class='player' id='User" + i + "'></div>");
+        		$("#User" + i).css("margin-left",users[i].posX*movementLength + "px");
+        		$("#User" + i).css("margin-top",users[i].posY *movementLength + "px");
+        	}
+        	if(users[i].areaX === area.X && users[i].areaY === area.Y){
+        		$("#User" + i).show();
+        	}else if(users[i].areaX !== area.X || users[i].areaY !== area.Y){
+        		$("#User" + i).hide();
+        	}
+        	if(users[i].userNumber === userNumber){
+        		area.X = users[i].areaX
+        		area.Y = users[i].areaY
+        		$("#coordsText").html(area.X + "," + area.Y);
+        	}
+        	if(users[i].userNumber === userNumber){
+        		if(firstUpdate){
+        		    inventory = users[i].inventory;
+        		    inventoryArray = users[i].inventoryArray;
+        		    updateInventory();
+        		    firstUpdate = false;
+        		}
+
+        	}
+        }
+	});
+
+
+//Get usernumber
+	  socket.on("userNumber",function(usersNumber, player){
+	      console.log(player);
 		userNumber = usersNumber;
+		local.X = player.posX;
+		local.Y = player.posY;
+		local.prev.X = player.prevPosX;
+		local.prev.Y = player.prevPosY;
+		area.X = player.areaX;
+		area.Y = player.areaY;
 	  });
-	
+
+//Insert all the divs to the map, which will be the block textures
 	while(mapLimit.X + mapLimit.Y != mapLimit.artX + mapLimit.artY){
 		mapLimit.artY = mapLimit.artY + 1;
 		if(mapLimit.artY > mapLimit.Y){
@@ -190,120 +349,171 @@
 		}
 		$("body").append("<img src='https://db.tt/SdXqMMiE' class='block' style='height: " + blockSize + "px;width:  " + blockSize + "px;background-color: white;position: absolute;display: inline;margin-left: " + mapLimit.artX * blockSize + "px;margin-top: " + mapLimit.artY * blockSize + "px;' id='" + mapLimit.artX.toString() + "_" + mapLimit.artY.toString() + "'> </img>");
 	}
-	
-	socket.on("sendBlocks",function(blocks,blocksCoords){
-		if(typeof blocksCoords[area.X + "_" + area.Y] !== "undefined"){
-		mapLimit.artX = 0;
-		mapLimit.artY = -1;
-		while(mapLimit.X + mapLimit.Y != mapLimit.artX + mapLimit.artY){
-			mapLimit.artY = mapLimit.artY + 1;
-			if(mapLimit.artY > mapLimit.Y){
-				mapLimit.artX = mapLimit.artX + 1;
-				mapLimit.artY = 0;
-			}
-			//Change block, executed for every art-coord.
-			if(typeof blocksCoords[area.X + "_" + area.Y][mapLimit.artX + "_" + mapLimit.artY] !== "undefined"){
-				$("#" + mapLimit.artX.toString() + "_" + mapLimit.artY.toString()).attr("src",texture[blocksCoords[area.X + "_" + area.Y][mapLimit.artX + "_" + mapLimit.artY].type]);
-				/*switch(blocksCoords[area.X + "_" + area.Y][mapLimit.artX + "_" + mapLimit.artY].type){
-					case "wood":
-						$("#" + mapLimit.artX.toString() + "_" + mapLimit.artY.toString()).attr("src","https://db.tt/TyZBx7EG");
-						break;
-					case "stone":
-						$("#" + mapLimit.artX.toString() + "_" + mapLimit.artY.toString()).attr("src","https://db.tt/GubvjqiF");
-						break;
-					case "empty":
-						$("#" + mapLimit.artX.toString() + "_" + mapLimit.artY.toString()).attr("src","https://db.tt/SdXqMMiE");
-						break;
-				}*/
-			}else if(typeof blocksCoords[area.X + "_" + area.Y][mapLimit.artX + "_" + mapLimit.artY] === "undefined"){
-				$("#" + mapLimit.artX.toString() + "_" + mapLimit.artY.toString()).attr("src","https://db.tt/SdXqMMiE");
-			}
-		}
-		}else if(typeof blocksCoords[area.X + "_" + area.Y] === "undefined"){
-			$(".block").css("background-color","white");
-		}
-		globalBlocksCoords = blocksCoords;
-	  });
-	  
+
+
+//Get blocks
+	socket.on("sendBlocks",function(blocks){
+		updateBlocks(blocks);
+		//console.log("Updated block array");
+	});
+
 	  socket.on("usernameTaken",function(){
-		username = prompt("The username has already been taken, try another one?","Username");
+	   	username = prompt("The username has already been taken, try another one?","Username");
 		socket.emit("usernameFunction",username);
 	  });
-	  
-	  socket.on("broadcast",function(msg){
-		alert(msg);
-	  });
-	  
-	  function broadcast(msg){
-		socket.emit("adminBroadcast",msg);
-	  }
-	  
-	  function block(coordsX,coordsY,areaX,areaY,type,user){
-		socket.emit("blockRequest",coordsX,coordsY,area.X,area.Y,type,user);
-	  }
-	  
-	  //Click on block
-	  $(".block").click(function(){
-			$(this).attr("src",texture[slots[slotSelected]]);
-			/*switch(slots[slotSelected]){
-					case "wood":
-						$(this).attr("src","https://db.tt/TyZBx7EG");
-						break;
-					case "empty":
-						$(this).attr("src","https://db.tt/SdXqMMiE");
-						break;
-				}*/
-			//Converts block id into actual integer coords. 
-			for(charChecked = (0); $(this).attr("id").length > charChecked; charChecked = charChecked + 1){
-				if($(this).attr("id").charAt(charChecked) === "_"){
-					clicked.xMode = false;
-				}else if(clicked.xMode){
-					clicked.X = (clicked.X + $(this).attr("id").charAt(charChecked));
-				}else if(!clicked.xMode){
-					clicked.Y = (clicked.Y + $(this).attr("id").charAt(charChecked));
-				}
-					clicked.X = parseInt(clicked.X, 10);
-					clicked.Y = parseInt(clicked.Y, 10);
-			}
-			//Calls blocks with the coords just generated. 
-			block(clicked.X,clicked.Y,area.X,area.Y,slots[slotSelected],username);
-			//Resets variables
-			clicked.X = 0;
-			clicked.Y = 0;
-			clicked.xMode = true;
-		
 
-	    });
+	  socket.on("newBlock", function(posX, posY, areaX, areaY, type, options){
+	      blocks[areaX + "_" + areaY][posX + "_" + posY] = {"posX" : posX, "posY" : posY, "solid" : blockTypes[type].solid, "type" : type, "options": options};
+	       updateBlocks(blocks);
+	       //console.log("Got block from server at " + posX + "," + posY + " in area " + areaX + "," + areaY);
+
+	  });
+
 	  
+
+	
+//Change block
+	  function block(coordsX,coordsY,areaX,areaY,type,user, options){
+	  console.log(options);
+		socket.emit("blockRequest",coordsX,coordsY,area.X,area.Y,type, user, options);
+		//console.log("Sending block to server");
+		//blocks[areaX+ "_" + areaY][coordsX + "_" + coordsY] = {"posX" : coordsX, "posY" : coordsY, "solid" : blockTypes[type].solid, "type" : type};
+	  }
+
+//Msg system
+function broadcast(msg){
+		socket.emit("chatMsg",msg);
+		document.getElementById("chatMSG").value = "";
+}
+
+socket.on("newMsg", function(msg, player){
+		console.log("[" + player + "] : " + msg);
+		var para = document.createElement("p");
+		var node = document.createTextNode("[" + player + "] : " + msg);
+		para.appendChild(node);
+
+		var element = document.getElementById("chatWindow");
+		element.appendChild(para);
+});
+
+//Click on block
+	  $(".block").click(function(){
+        if(inventory[slots[slotSelected]] > 0 || slots[slotSelected] === "empty"){
+            updateInventory();
+
+		  $(this).attr("src",texturePath + texture[slots[slotSelected]]);
+
+		  //Converts block id into actual integer coords.
+		  for(charChecked = (0); $(this).attr("id").length > charChecked; charChecked = charChecked + 1){
+		  	if($(this).attr("id").charAt(charChecked) === "_"){
+		  		clicked.xMode = false;
+		  	}else if(clicked.xMode){
+		  		clicked.X = (clicked.X + $(this).attr("id").charAt(charChecked));
+		  	}else if(!clicked.xMode){
+		  		clicked.Y = (clicked.Y + $(this).attr("id").charAt(charChecked));
+		  	}
+		  		clicked.X = parseInt(clicked.X, 10);
+		  		clicked.Y = parseInt(clicked.Y, 10);
+		  }
+
+          //Updates local inventory and inventoryArray
+		  if(slots[slotSelected] !== "empty"){
+              if(typeof blocks[area.X + "_" + area.Y][clicked.X + "_" + clicked.Y] === "undefined" || blocks[area.X + "_" + area.Y][clicked.X + "_" + clicked.Y].type === "empty"){
+                inventory[slots[slotSelected]]--;
+                for(iL = inventoryArray.length - 1; iL > -1 ; iL = iL - 1){
+			      if(inventoryArray[iL].type === slots[slotSelected]){
+			          inventoryArray[iL].quantity--;
+			      }
+		        }
+		      }
+		    }
+		  }else if(slots[slotSelected] === "empty"){
+            if(typeof blocks[area.X + "_" + area.Y][clicked.X + "_" + clicked.Y] !== "undefined"){
+              if(blocks[area.X + "_" + area.Y][clicked.X + "_" + clicked.Y].type !== "empty"){
+                inventory[blocks[area.X + "_" + area.Y][clicked.X + "_" + clicked.Y].type]++;
+                for(iL = inventoryArray.length - 1; iL > -1 ; iL = iL - 1){
+    		      if(inventoryArray[iL].type === blocks[area.X + "_" + area.Y][clicked.X + "_" + clicked.Y].type){
+    		          inventoryArray[iL].quantity++;
+    		      }
+    		    }
+              }
+		    }
+		  }
+		  updateInventory();
+			
+		  //Calls blocks with the coords just generated.
+		  var options;
+		  switch(slots[slotSelected]){
+		  		case "door":
+		  				var succes = false;
+		  				var number;
+		  				while(!succes){
+		  					var input = prompt("To area X. From 0 to " + mapLimit.maxAreaX);
+		  					number = parseInt(input);
+		  					if(number >= 0 && number <= mapLimit.maxAreaX){
+		  						succes = true;
+		  					}
+		  				}
+		  				var toX = number;
+		  				succes = false;
+		  				while(!succes){
+		  					var input = prompt("To area Y. From 0 to " + mapLimit.maxAreaY);
+		  					number = parseInt(input);
+		  					if(number >= 0 && number <= mapLimit.maxAreaY){
+		  						succes = true;
+		  					}
+		  				}
+		  				var toY = number;
+		  				options = {toX: toX, toY: toY};
+		  			break;
+		  		default:
+		  				options = {};
+		  }
+		  
+		  
+		  block(clicked.X,clicked.Y,area.X,area.Y,slots[slotSelected],username, options);
+
+		  //Resets variables
+		  clicked.X = 0;
+		  clicked.Y = 0;
+		  clicked.xMode = true;
+        //}
+	  });
+
+
+//Inventory stuff
 	function changeSlotActiveBlock(slot,block){
 		slots[slot] = block;
 	}
-	
+
 	function updateInventory(){
 		for(iL = inventoryArray.length - 1; iL > -1 ; iL = iL - 1){
 			if($("#" + inventoryArray[iL].type).length > 0){
-				if(updateInventoryTimer > 40){
-					updateInventoryTimer = -1;
+				//if(updateInventoryTimer > 40){
+					//updateInventoryTimer = -1;
 					$("#" + inventoryArray[iL].type).html(inventoryArray[iL].quantity + " " + inventoryArray[iL].type);
-					console.log("update" + inventoryArray[iL].type);
-				}else{
-					updateInventoryTimer++;
-				}
+				//}else{
+					//updateInventoryTimer++;
+					console.log("UpdateInentoy");
+				//}
 			}else{
 				inventoryListItems++;
 				$("body").append("<h3 class='inventoryList' id='" + inventoryArray[iL].type + "' style='display: inline;position: absolute;margin-left: 965px;margin-top: " + (25 * inventoryListItems + 100) + "px;font-family: arial;'>" + inventoryArray[iL].quantity + " " + inventoryArray[iL].type + "</h3>");
-				console.log("append");
 			}
 		}
-	}	
-	
+	}
+
 	$("body").on("click", ".inventoryList", function(){
-			if(slotSelected !== 1){
-				slots[slotSelected] = $(this).attr("id");
-			}
-			console.log($(this).attr("id"));
-			updateSlotText();
-		});
+		if(slotSelected !== 1){
+			slots[slotSelected] = $(this).attr("id");
+		}
+        //console.log($(this).attr("id"));
+		updateSlotText();
+	});
+	
+	
+	
+	
 	
 	//Update slot text
 	function updateSlotText(){
@@ -314,23 +524,31 @@
 		$("#slotText5").html(slots[5]);
 	}
 	updateSlotText();
+    socket.on("startBlocks",function(Blocks){
+        blocks = Blocks;
+      updateBlocks(blocks);
+      //console.log("Got start blocks from server");
 	});
+
+    });
     </script>
-	<div id="slot1" class="slots" style="background-color: red;height: 50px;width: 50px;display: inline;position: absolute;margin-top: 560px;"><h4 class="slotText" id="slotText1" style="text-align: center;margin-top: 1px;">Slot 1</h1></div> 
-	<div id="slot2" class="slots" style="background-color: green;height: 50px;width: 50px;display: inline;position: absolute;margin-top: 560px;margin-left: 70px;"><h4 class="slotText" id="slotText2" style="text-align: center;margin-top: 1px;">Slot 2</h1></div>
-	<div id="slot3" class="slots" style="background-color: green;height: 50px;width: 50px;display: inline;position: absolute;margin-top: 560px;margin-left: 140px;"><h4 class="slotText" id="slotText3" style="text-align: center;margin-top: 1px;">Slot 3</h1></div>
-	<div id="slot4" class="slots" style="background-color: green;height: 50px;width: 50px;display: inline;position: absolute;margin-top: 560px;margin-left: 210px;"><h4 class="slotText" id="slotText4" style="text-align: center;margin-top: 1px;">Slot 4</h1></div>
-	<div id="slot5" class="slots" style="background-color: green;height: 50px;width: 50px;display: inline;position: absolute;margin-top: 560px;margin-left: 280px;"><h4 class="slotText" id="slotText5" style="text-align: center;margin-top: 1px;">Slot 5</h1></div>
+	<div id="slot1" class="slots" style="background-color: red;height: 50px;width: 50px;display: inline;position: absolute;margin-top: 560px;"><h4 class="slotText" id="slotText1" style="text-align: center;margin-top: 1px;">Slot 1</h4></div>
+	<div id="slot2" class="slots" style="background-color: green;height: 50px;width: 50px;display: inline;position: absolute;margin-top: 560px;margin-left: 70px;"><h4 class="slotText" id="slotText2" style="text-align: center;margin-top: 1px;">Slot 2</h4></div>
+	<div id="slot3" class="slots" style="background-color: green;height: 50px;width: 50px;display: inline;position: absolute;margin-top: 560px;margin-left: 140px;"><h4 class="slotText" id="slotText3" style="text-align: center;margin-top: 1px;">Slot 3</h4></div>
+	<div id="slot4" class="slots" style="background-color: green;height: 50px;width: 50px;display: inline;position: absolute;margin-top: 560px;margin-left: 210px;"><h4 class="slotText" id="slotText4" style="text-align: center;margin-top: 1px;">Slot 4</h4></div>
+	<div id="slot5" class="slots" style="background-color: green;height: 50px;width: 50px;display: inline;position: absolute;margin-top: 560px;margin-left: 280px;"><h4 class="slotText" id="slotText5" style="text-align: center;margin-top: 1px;">Slot 5</h4></div>
 	<h2 class="slotNumber" style="position: absolute;display: inline;margin-top: 620px;margin-left: 19px;">1</h2>
 	<h2 class="slotNumber" style="position: absolute;display: inline;margin-top: 620px;margin-left: 89px;">2</h2>
-	<h3 class="slotNumber" style="position: absolute;display: inline;margin-top: 620px;margin-left: 159px;">3</h3>
+	<h2 class="slotNumber" style="position: absolute;display: inline;margin-top: 620px;margin-left: 159px;">3</h2>
 	<h2 class="slotNumber" style="position: absolute;display: inline;margin-top: 620px;margin-left: 229px;">4</h2>
 	<h2 class="slotNumber" style="position: absolute;display: inline;margin-top: 620px;margin-left: 299px;">5</h2>
 	<h2 style="position: absolute;display: inline;margin-top: 650px;font-family: arial;" >Click the item in your inventory to bind it to the currently selected key</h2>
 	<h3 id="coordsText" style="display: inline;position: absolute;margin-left: 950px;">Insert coords</h3>
 	<h2 id="inventory" style="display: inline;position: absolute;margin-left: 950px;margin-top: 100px;font-family: arial;">Inventory:</h2>
-	<script>
 	
-	</script>
+	
+	<div id="chatWindow" class="chatWindow">
+		<input id="chatMSG" type="textarea" name="chatMSG"/>
+	</div>
   </body>
 </html>
